@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eprime-gen"
+version = "0.1.0"
+description = "Random Essence Prime model/parameter file generator for Savile Row testing"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+eprime-gen = "eprime_gen.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

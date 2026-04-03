@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Testing output
+fuzz-crashes/
+fuzz-out/
+fuzz_output.txt
+*.solution
+*.minion
+*.dimacs
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# pytest
+.pytest_cache/
+
+# Savile Row distribution (not part of this project)
+savilerow-1.11.1-linux/
+
+# Claude Code
+.claude/
+CLAUDE.md
