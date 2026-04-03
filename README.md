@@ -1,7 +1,7 @@
 # Savile Row Fuzzing Tool
 
 A randomised test-generation and differential-testing framework for
-[Savile Row](https://savilerow.cs.st-andrews.ac.uk/), a constraint modelling
+[Savile Row](https://www-users.york.ac.uk/peter.nightingale/savilerow/), a constraint modelling
 compiler for the Essence Prime language.
 
 The tool generates thousands of unique, seeded Essence Prime models, runs them
@@ -42,7 +42,7 @@ Savile Row is **not** included in this repository.  Download it from the
 official site and build it before running the fuzzer.
 
 ```bash
-# Download from https://savilerow.cs.st-andrews.ac.uk/
+# Download from https://www-users.york.ac.uk/peter.nightingale/savilerow/
 # (Linux build used during development: savilerow-1.11.1-linux.tar.gz)
 
 tar xf savilerow-1.11.1-linux.tar.gz
@@ -367,13 +367,10 @@ python -m pytest tests/ -v
 
 Roughly 10% of generated models are rejected by Savile Row with a clean error
 message.  These are intentional — the generator does not filter them out
-because they exercise error-handling paths.  The two most common causes:
+because they exercise error-handling paths.  The most common cause:
 
 - **`factorial` on a decision variable** (~9%): EPrime requires `factorial`
   arguments to be ground (parameter/constant only).
-- **Negative value in `<v1, v2>` tuple syntax** (~1%): SR's lexer reads `<-`
-  as a less-than operator rather than the start of a negative-valued tuple,
-  causing a parse error.  This is itself a tokeniser bug in SR.
 
 ---
 
