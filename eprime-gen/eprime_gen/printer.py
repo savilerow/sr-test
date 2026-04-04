@@ -13,7 +13,7 @@ def _domain_needs_parens(d) -> bool:
 
 
 def _needs_parens(node: Expr) -> bool:
-    return isinstance(node, (BinOp, UnaryOp, Quantifier, MultiVarQuantifier, IfExpr, InDomain))
+    return isinstance(node, (BinOp, UnaryOp, Quantifier, MultiVarQuantifier, InDomain))
 
 
 def _p(node: Expr) -> str:
@@ -84,15 +84,10 @@ def expr(e: Expr) -> str:
     if isinstance(e, FuncCall):
         args_s = ", ".join(expr(a) for a in e.args)
         return f"{e.name}({args_s})"
-    if isinstance(e, IfExpr):
-        return f"({_p(e.cond)} -> {_p(e.then_expr)} | {_p(e.else_expr)})"
     if isinstance(e, Slice3D):
         parts = ["..", "..", ".."]
         parts[e.fixed_dim] = expr(e.fixed_idx)
         return f"{_p(e.matrix)}[{', '.join(parts)}]"
-    if isinstance(e, OldTuple):
-        vals = ", ".join(str(v) for v in e.values)
-        return f"<{vals}>"
     if isinstance(e, RowComprehension):
         cols = ", ".join(expr(c) for c in e.col_exprs)
         vars_part = ", ".join(f"{v} : {domain(d)}" for v, d in e.iter_vars)

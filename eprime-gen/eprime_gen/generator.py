@@ -16,8 +16,8 @@ from .ast_nodes import (
     IndexOfDomain, DomainBinOp,
     IntLit, BoolLit, Var, BinOp, UnaryOp, AbsVal,
     Index, Slice, ArrayLit, Comprehension, MultiVarComprehension,
-    Quantifier, MultiVarQuantifier, FuncCall, IfExpr,
-    OldTuple, RowComprehension, TableConstraint, Slice3D,
+    Quantifier, MultiVarQuantifier, FuncCall,
+    RowComprehension, TableConstraint, Slice3D,
     InDomain,
     GivenDecl, DomainLettingDecl, LettingDecl, FindDecl, Objective, Model, Expr,
 )
@@ -65,7 +65,6 @@ class GenConfig:
     feat_circuit: float = 0.6          # circuit(X) — Hamiltonian circuit on 1D array
     feat_inverse: float = 0.5          # inverse(X, Y) — functional inverse of two 1D arrays
     feat_gcc: float = 0.5              # gcc(X, Vals, C) — global cardinality constraint
-    feat_if_expr: float = 0.5          # if(cond, a, b) — conditional expression
     feat_min_max_scalar: float = 0.5   # min(x,y) / max(x,y) — binary scalar forms
     feat_popcount: float = 0.3         # popcount(x) — bit population count (non-decision arg only)
     feat_multi_quantifier: float = 0.4 # forAll i,j : d . body — multi-variable quantifiers
@@ -333,12 +332,7 @@ class Generator:
             choices += ["factorial"]
             weights += [self.cfg.feat_factorial]
 
-        # if(cond, a, b) — conditional int expression
-        if self.cfg.feat_if_expr > 0 and depth >= 2:
-            choices += ["if_int"]
-            weights += [self.cfg.feat_if_expr]
-
-        # min(x,y) / max(x,y) — binary scalar forms
+# min(x,y) / max(x,y) — binary scalar forms
         if self.cfg.feat_min_max_scalar > 0 and int_vars:
             choices += ["min_scalar", "max_scalar"]
             weights += [self.cfg.feat_min_max_scalar * 0.5, self.cfg.feat_min_max_scalar * 0.5]
@@ -416,11 +410,6 @@ class Generator:
         if pick == "factorial":
             inner = self._gen_int(depth - 1, scope)
             return FuncCall("factorial", [inner], Type.INT)
-        if pick == "if_int":
-            cond = self._gen_bool(depth - 1, scope)
-            then_e = self._gen_int(depth - 1, scope)
-            else_e = self._gen_int(depth - 1, scope)
-            return IfExpr(cond, then_e, else_e, Type.INT)
         if pick == "min_scalar":
             l = self._gen_int(depth - 1, scope)
             r = self._gen_int(depth - 1, scope)
@@ -517,10 +506,6 @@ class Generator:
         if self.cfg.feat_gcc > 0 and arr_int:
             choices += ["gcc"]
             weights += [self.cfg.feat_gcc]
-
-        if self.cfg.feat_if_expr > 0 and depth >= 2:
-            choices += ["if_bool"]
-            weights += [self.cfg.feat_if_expr * 0.5]
 
         if self.cfg.feat_multi_quantifier > 0 and depth >= 2:
             choices += ["forAll_multi", "exists_multi"]
@@ -640,11 +625,6 @@ class Generator:
             return FuncCall("gcc", [arr_expr,
                                     ArrayLit(vals,   Type.ARRAY_INT),
                                     ArrayLit(counts, Type.ARRAY_INT)], Type.BOOL)
-        if pick == "if_bool":
-            cond   = self._gen_bool(depth - 1, scope)
-            then_e = self._gen_bool(depth - 1, scope)
-            else_e = self._gen_bool(depth - 1, scope)
-            return IfExpr(cond, then_e, else_e, Type.BOOL)
         if pick in ("forAll_multi", "exists_multi"):
             kind = "forAll" if pick == "forAll_multi" else "exists"
             d = self._quant_domain(scope)
@@ -847,18 +827,6 @@ class Generator:
             rows.append(ArrayLit(cells, Type.ARRAY_INT))
         return ArrayLit(rows, Type.MATRIX_INT)
 
-    def _gen_table_rows_old_tuples(self, col_ranges: list[tuple[int,int]],
-                                    n_rows: int) -> ArrayLit:
-        """[<v1,v2,...>, ...] — old angle-bracket tuple syntax.
-        SR BUG: when any value is negative, '<-N' is mis-tokenised as a less-than
-        operator rather than the start of a tuple, causing a parse error.  We
-        intentionally allow negative values here so the generator can expose that bug."""
-        rows = []
-        for _ in range(n_rows):
-            vals = [self._randint(lo, hi) for lo, hi in col_ranges]
-            rows.append(OldTuple(vals))
-        return ArrayLit(rows, Type.ARRAY_INT)
-
     def _gen_table_rows_comprehension(self, col_ranges: list[tuple[int,int]]) -> RowComprehension:
         """Comprehension form for a table matrix.
         Two strategies:
@@ -993,7 +961,6 @@ class Generator:
         # a matching given/letting and are enabled only when one exists.
         table_weights: dict[str, float] = {
             "inline":        2.0,
-            "old_tuples":    1.0,
             "comprehension": 1.0,
             "reference":     0.0,
             "3d_slice":      0.0,
@@ -1017,9 +984,7 @@ class Generator:
 
         form = self._weighted(list(table_weights), list(table_weights.values()))
 
-        if form == "old_tuples":
-            table_expr = self._gen_table_rows_old_tuples(col_ranges, n_rows)
-        elif form == "comprehension":
+        if form == "comprehension":
             table_expr = self._gen_table_rows_comprehension(col_ranges)
         elif form == "reference" and matching_lets:
             table_expr = Var(self._choice(matching_lets), Type.MATRIX_INT)

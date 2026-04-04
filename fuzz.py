@@ -40,12 +40,46 @@ from eprime_gen.ast_nodes import IntLit, Var, BinOp
 # Backend definitions
 # ---------------------------------------------------------------------------
 
-# Map backend name → extra SR flags (appended before -run-solver)
+# Map backend name → extra SR flags (appended before -run-solver).
+# For or-tools, the -or-tools-bin flag is resolved at startup and appended
+# dynamically (see _resolve_backend_flags).
 BACKENDS: dict[str, list[str]] = {
-    "minion":  [],
-    "sat":     ["-sat"],
-    "chuffed": ["-chuffed"],
+    "minion":   [],
+    "sat":      ["-sat"],
+    "chuffed":  ["-chuffed"],
+    "or-tools": ["-or-tools"],
 }
+
+
+def _find_fzn_cp_sat() -> str | None:
+    """Search common locations for the fzn-cp-sat binary."""
+    here = Path(__file__).parent
+    # 1. or-tools_*/bin/fzn-cp-sat next to this script (setup-ortools.sh puts it here)
+    for d in sorted(here.glob("or-tools_*/bin/fzn-cp-sat")):
+        if d.is_file():
+            return str(d.resolve())
+    # 2. On PATH
+    found = shutil.which("fzn-cp-sat")
+    if found:
+        return found
+    return None
+
+
+def _resolve_backend_flags(backend_names: list[str]) -> dict[str, list[str]]:
+    """Return backend name → full SR flags, resolving solver binary paths."""
+    resolved: dict[str, list[str]] = {}
+    for name in backend_names:
+        flags = list(BACKENDS[name])
+        if name == "or-tools":
+            path = _find_fzn_cp_sat()
+            if path is None:
+                sys.exit(
+                    "ERROR: or-tools backend requested but fzn-cp-sat not found.\n"
+                    "       Run ./setup-ortools.sh first, or put fzn-cp-sat on PATH."
+                )
+            flags += ["-or-tools-bin", path]
+        resolved[name] = flags
+    return resolved
 
 # ---------------------------------------------------------------------------
 # Crash detection
@@ -206,7 +240,7 @@ def _run_backend(sr_path: str, eprime: Path, param: Path,
 
 def run_one_diff(args_tuple) -> dict:
     """Generate one model and run it through each requested backend."""
-    seed, sr_path, cfg, backend_names, out_dir, keep_failures, timeout = args_tuple
+    seed, sr_path, cfg, backend_flags, out_dir, keep_failures, timeout = args_tuple
 
     m, pvals = generate_model(seed=seed, cfg=cfg)
     model_text = print_model(m)
@@ -214,7 +248,7 @@ def run_one_diff(args_tuple) -> dict:
 
     backend_results: dict[str, dict] = {}
 
-    for name in backend_names:
+    for name, flags in backend_flags.items():
         # Each backend gets its own temp directory so solution files don't clash
         with tempfile.TemporaryDirectory() as tmp:
             eprime = Path(tmp) / "test.eprime"
@@ -222,7 +256,7 @@ def run_one_diff(args_tuple) -> dict:
             eprime.write_text(model_text)
             param.write_text(param_text)
 
-            br = _run_backend(sr_path, eprime, param, BACKENDS[name], timeout)
+            br = _run_backend(sr_path, eprime, param, flags, timeout)
 
             # Evaluate objective from solution if possible
             if br["status"] == "ok" and br["sat"] and m.objective:
@@ -323,7 +357,7 @@ def parse_args():
                         "multiple SR backends and flag disagreements")
     p.add_argument("--backends",      default="minion,sat",
                    help="Comma-separated backends to compare in --diff-test mode "
-                        "(choices: minion, sat, chuffed; default: minion,sat)")
+                        "(choices: minion, sat, chuffed, or-tools; default: minion,sat)")
     return p.parse_args()
 
 
@@ -363,13 +397,16 @@ def main():
         if b not in BACKENDS:
             sys.exit(f"ERROR: unknown backend '{b}'. Choose from: {', '.join(BACKENDS)}")
 
+    # Resolve backend flags (locates solver binaries like fzn-cp-sat)
+    backend_flags = _resolve_backend_flags(backend_names)
+
     out_dir = Path(args.output) if args.keep_failures else None
     if out_dir:
         out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.diff_test:
         tasks = [
-            (args.seed + i, sr, cfg, backend_names,
+            (args.seed + i, sr, cfg, backend_flags,
              str(out_dir) if out_dir else None, args.keep_failures, args.timeout)
             for i in range(args.count)
         ]

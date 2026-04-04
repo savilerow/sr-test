@@ -33,6 +33,7 @@ disagreements.
 | Savile Row | 1.11.1 | Must be obtained separately (see below) |
 | Minion | bundled with SR | Included in the Savile Row distribution |
 | kissat (SAT) | bundled with SR | Included in the Savile Row distribution |
+| OR-Tools CP-SAT | 9.12 | Optional; install via `./setup-ortools.sh` |
 
 ---
 
@@ -53,7 +54,22 @@ cd savilerow-1.11.1-linux
 cd ..
 ```
 
-Then either add the `savilerow` wrapper script to your `PATH`, or pass its
+### Optional: OR-Tools CP-SAT
+
+To add OR-Tools CP-SAT as a differential-testing backend:
+
+```bash
+./setup-ortools.sh
+```
+
+This downloads OR-Tools and extracts it next to the fuzzer.  `fuzz.py`
+automatically searches `or-tools_*/bin/fzn-cp-sat` at startup and passes
+`-or-tools-bin <path>` to Savile Row — no modification to the SR distribution
+is needed.
+
+### PATH setup
+
+Either add the `savilerow` wrapper script to your `PATH`, or pass its
 location explicitly to `fuzz.py` via `--sr-path`:
 
 ```bash
@@ -91,6 +107,7 @@ python3 -m eprime_gen -n 10 -o out/
 ```
 .
 ├── fuzz.py                     # Main fuzzer entry point
+├── setup-ortools.sh            # Downloads and installs OR-Tools CP-SAT solver
 ├── eprime-gen/                 # Random EPrime model generator (Python package)
 │   └── eprime_gen/
 │       ├── __init__.py         # Public API: generate_model, GenConfig, print_model, print_param
@@ -112,7 +129,7 @@ python3 -m eprime_gen -n 10 -o out/
 flags any Java exception or internal error in the output.
 
 **Differential testing (`--diff-test`):** runs each model through two or more
-SR backends (Minion, SAT, Chuffed) and flags:
+SR backends (Minion, SAT, Chuffed, OR-Tools CP-SAT) and flags:
 - any backend crashing with a Java exception
 - SAT/UNSAT disagreement between backends
 - objective-value disagreement between backends (when an objective is present)
@@ -141,7 +158,7 @@ Options:
 
 Differential testing:
   --diff-test            Enable differential mode
-  --backends B1,B2,...   Backends to compare: minion, sat, chuffed (default: minion,sat)
+  --backends B1,B2,...   Backends to compare: minion, sat, chuffed, or-tools (default: minion,sat)
 ```
 
 ### Examples
@@ -158,6 +175,9 @@ python3 fuzz.py --diff-test -n 1000 --keep-failures -o fuzz-out/
 
 # Include Chuffed as a third backend
 python3 fuzz.py --diff-test --backends minion,sat,chuffed -n 500
+
+# Include OR-Tools CP-SAT (requires ./setup-ortools.sh first)
+python3 fuzz.py --diff-test --backends minion,sat,or-tools -n 500
 
 # Crash-detection only (no differential comparison)
 python3 fuzz.py -n 500 --keep-failures

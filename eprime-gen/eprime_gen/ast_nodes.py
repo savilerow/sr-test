@@ -195,15 +195,6 @@ class FuncCall:
 
 
 @dataclass
-class IfExpr:
-    """if(cond, then_expr, else_expr)"""
-    cond: "Expr"
-    then_expr: "Expr"
-    else_expr: "Expr"
-    type: Type
-
-
-@dataclass
 class Slice3D:
     """matrix3d[i,..,..] / matrix3d[..,i,..] / matrix3d[..,..,i]
     Fix one dimension of a 3-D matrix to produce a 2-D slice."""
@@ -211,13 +202,6 @@ class Slice3D:
     fixed_dim: int    # 0, 1, or 2
     fixed_idx: "Expr"
     type: Type = field(init=False, default=Type.MATRIX_INT)
-
-
-@dataclass
-class OldTuple:
-    """<v1, v2, ...> — angle-bracket tuple syntax used inside table constraints"""
-    values: list[int]
-    type: Type = field(init=False, default=Type.ARRAY_INT)
 
 
 @dataclass
@@ -273,8 +257,8 @@ class InDomain:
 
 Expr = (IntLit | BoolLit | Var | BinOp | UnaryOp | AbsVal
         | Index | Slice | Slice3D | ArrayLit | Comprehension
-        | Quantifier | MultiVarQuantifier | FuncCall | IfExpr
-        | OldTuple | RowComprehension | TableConstraint
+        | Quantifier | MultiVarQuantifier | FuncCall
+        | RowComprehension | TableConstraint
         | MultiVarComprehension | InDomain)
 
 
